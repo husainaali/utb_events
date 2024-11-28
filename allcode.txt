@@ -1,0 +1,2291 @@
+=== lib/provider/main_provider.dart ===
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Define the provider
+final navigationProvider =
+    StateNotifierProvider<NavigationNotifier, int>((ref) {
+  return NavigationNotifier();
+});
+
+// Create the state notifier class
+class NavigationNotifier extends StateNotifier<int> {
+  NavigationNotifier() : super(0);
+
+  int _isLoggedIn = 0;
+  int get isLoggedIn => _isLoggedIn;
+
+  void setLoginStatus(bool status) {
+    _isLoggedIn = status ? 1 : 0;
+  }
+
+  void setIndex(int index) {
+    state = index;
+  }
+}
+=== lib/utils/size_config.dart ===
+import 'package:flutter/material.dart';
+
+class SizeConfig {
+  static late MediaQueryData _mediaQueryData;
+  static late double screenWidth;
+  static late double screenHeight;
+  static late double defaultSize;
+  static late Orientation orientation;
+
+  void init(BuildContext context) {
+    _mediaQueryData = MediaQuery.of(context);
+    screenWidth = _mediaQueryData.size.width;
+    screenHeight = _mediaQueryData.size.height;
+    orientation = _mediaQueryData.orientation;
+    
+    // Default size is based on screen width
+    // Using 375 as base width (iPhone X/XS)
+    defaultSize = screenWidth / 375;
+  }
+
+  // Get proportionate height according to screen size
+  static double getProportionateScreenHeight(double inputHeight) {
+    return (inputHeight / 812.0) * screenHeight;
+  }
+
+  // Get proportionate width according to screen size
+  static double getProportionateScreenWidth(double inputWidth) {
+    return (inputWidth / 375.0) * screenWidth;
+  }
+} === lib/utils/university_data.dart ===
+import '../models/university.dart';
+
+final List<University> bahrainUniversities = [
+  University(id: 1, name: 'Applied Science University', shortName: 'ASU'),
+  University(id: 2, name: 'Arab Open University', shortName: 'AOU'),
+  University(id: 3, name: 'University of Technology Bahrain', shortName: 'UTB'),
+  University(id: 4, name: 'American University of Bahrain', shortName: 'AUBH'),
+  University(id: 5, name: 'Vatel Hotel & Tourism Business School', shortName: 'VATEL'),
+  University(id: 6, name: 'Ahlia University', shortName: 'AU'),
+  University(id: 7, name: 'Bahrain Institute of Banking and Finance', shortName: 'BIBF'),
+  University(id: 8, name: 'British University of Bahrain', shortName: 'BUB'),
+  University(id: 9, name: 'Gulf University', shortName: 'GU'),
+  University(id: 10, name: 'Kingdom University', shortName: 'KU'),
+  University(id: 11, name: 'Royal College of Surgeons in Ireland - Bahrain', shortName: 'RCSI'),
+  University(id: 12, name: 'Royal University for Women', shortName: 'RUW'),
+  University(id: 13, name: 'Talal Abu Ghazaleh University College of Business', shortName: 'TAG-UCB'),
+  University(id: 14, name: 'University College of Bahrain', shortName: 'UCB'),
+  University(id: 15, name: 'Euro University of Bahrain', shortName: 'EUB'),
+]; === lib/utils/size_extensions.dart ===
+import 'size_config.dart';
+
+extension SizeExtension on num {
+  double get h => SizeConfig.getProportionateScreenHeight(toDouble());
+  double get w => SizeConfig.getProportionateScreenWidth(toDouble());
+}=== lib/models/university.dart ===
+class University {
+  final int id;
+  final String name;
+  final String shortName;
+
+  University({
+    required this.id,
+    required this.name,
+    required this.shortName,
+  });
+} === lib/models/user.dart ===
+class User {
+  final int id;
+  final String name;
+  final String email;
+  final bool notification;
+
+  User(
+      {required this.id,
+      required this.name,
+      required this.email,
+      required this.notification});
+
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+        id: json['id'],
+        name: json['name'],
+        email: json['email'],
+        notification: json['notification']);
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'notification': notification,
+    };
+  }
+}
+=== lib/main.dart ===
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'constant/colors.dart';
+import 'constant/routes.dart';
+import 'constant/string.dart';
+import 'models/user.dart';
+import 'pages_view/calendar/calendar_view.dart';
+import 'pages_view/categories/categories_view.dart';
+import 'pages_view/categories/category_list_view.dart';
+import 'pages_view/create_event/create_event_view.dart';
+import 'pages_view/event/event_view.dart';
+import 'pages_view/home/home_view.dart';
+import 'pages_view/login_register/login_register_view.dart';
+import 'pages_view/main_navigation.dart';
+import 'pages_view/profile/profile_view.dart';
+import 'utils/size_config.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final sharedPreferences = await SharedPreferences.getInstance();
+  await EasyLocalization.ensureInitialized();
+  final String userData = sharedPreferences.getString(AppString.user) ?? '';
+  User? currentUser;
+
+  if (userData.isNotEmpty) {
+    try {
+      currentUser = User.fromJson(jsonDecode(userData));
+    } catch (e) {
+      print('Error parsing user data: $e');
+    }
+  } else {
+    currentUser = User(
+        id: 2, name: 'Guest', email: 'guest@example.com', notification: false);
+  }
+
+  runApp(ProviderScope(
+    child: EasyLocalization(
+      supportedLocales: const [Locale('en', 'US'), Locale('ar', 'EG')],
+      path: 'assets/translations',
+      child: const MyApp(),
+    ),
+  ));
+}
+
+class MyApp extends ConsumerWidget {
+  const MyApp({super.key});
+
+  // This widget is the root of your application.
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    SizeConfig().init(context);
+    return MaterialApp(
+      title: 'Flutter Demo',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: primaryColor),
+        useMaterial3: true,
+      ),
+      // navigatorKey: navigationService.navigatorKey,
+      initialRoute: AppRoutes.mainNavigation,
+      routes: {
+        AppRoutes.mainNavigation: (context) => const MainNavigationView(),
+        AppRoutes.loginRegisterView: (context) => const LoginRegisterView(),
+        AppRoutes.homeView: (context) => const HomeView(),
+        AppRoutes.profileView: (context) => const ProfileView(),
+        AppRoutes.categoriesView: (context) => const CategoriesView(),
+        AppRoutes.calendarView: (context) => const CalendarView(),
+        AppRoutes.eventView: (context) => const EventView(),
+        AppRoutes.categoryListView: (context) => const CategoryListView(),
+        AppRoutes.createEventView: (context) => const CreateEventView(),
+      },
+    );
+  }
+}
+=== lib/constant/routes.dart ===
+class AppRoutes {
+  static const String mainNavigation = '/';
+  static const String loginRegisterView = '/login_register_view';
+  static const String homeView = '/home_view';
+  static const String profileView = '/profile_view';
+  static const String categoriesView = '/categories_view';
+  static const String calendarView = '/calendar_view';
+  static const String eventView = '/event_view';
+  static const String categoryListView = '/category_list_view';
+  static const String createEventView = '/create_event_view';
+}
+=== lib/constant/colors.dart ===
+
+
+import 'package:flutter/material.dart';
+
+const Color primaryColor = Color(0xFFBE3144);
+const Color secondaryColor = Color(0xFFF5F5F5);
+=== lib/constant/string.dart ===
+class AppString {
+  static const user = 'user';
+}
+=== lib/pages_view/home/home_view.dart ===
+import 'package:auto_size_text/auto_size_text.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gap/gap.dart';
+import 'package:utb_events/utils/size_extensions.dart';
+import '../../constant/routes.dart';
+import '../../widgets/custom_app_bar.dart';
+import '../../widgets/custom_event_list.dart';
+import '../categories/category_list_view.dart';
+
+class HomeView extends ConsumerStatefulWidget {
+  const HomeView({super.key});
+
+  @override
+  ConsumerState<HomeView> createState() => _HomeViewState();
+}
+
+class _HomeViewState extends ConsumerState<HomeView> {
+  final List<Map<String, String>> categories = [
+    {
+      'title': 'Education events',
+      'image': 'assets/education.png',
+      'corner': 'topRight'
+    },
+    {
+      'title': 'General events',
+      'image': 'assets/general.png',
+      'corner': 'topLeft'
+    },
+    {
+      'title': 'Sports events',
+      'image': 'assets/sport.png',
+      'corner': 'bottomRight'
+    },
+    {
+      'title': 'Food events',
+      'image': 'assets/food.png',
+      'corner': 'bottomLeft'
+    },
+  ];
+
+  final List<Map<String, dynamic>> events = [
+    {
+      'title': 'Bahrain Universities Conference 2025',
+      'location': 'Sakheer (UOB)',
+      'tag': '@UOB',
+      'date': '10 Jan 2025',
+      'image': 'assets/university.png', // Add your image asset
+    },
+    {
+      'title': 'UTB Sports Day',
+      'location': 'UTB Sports Complex',
+      'tag': '@UTB',
+      'date': '15 Mar 2025',
+      'image': 'assets/match.png',
+    },
+    {
+      'title': 'International Food Festival',
+      'location': 'UTB Campus',
+      'tag': '@UTB',
+      'date': '26 Apr 2025',
+      'image': 'assets/food.png',
+    },
+    {
+      'title': 'Student Research Conference',
+      'location': 'UTB Auditorium',
+      'tag': '@UTB',
+      'date': '2 May 2025',
+      'image': 'assets/university.png',
+    },
+    {
+      'title': 'Career Fair 2025',
+      'location': 'UTB Exhibition Hall',
+      'tag': '@UTB',
+      'date': '1 Jun 2025',
+      'image': 'assets/event.png',
+    }
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const CustomAppBar(title: 'Events Calendar'),
+      body: Column(
+        mainAxisSize: MainAxisSize.max,
+        children: [
+          Animate(
+            effects: [FadeEffect(duration: 800.ms)],
+            child: SizedBox(
+              height: 180.h,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: categories.length,
+                itemBuilder: (context, index) {
+                  String corner = categories[index % 4]['corner']!;
+                  return InkWell(
+                    onTap: () {
+                      Navigator.pushNamed(context, AppRoutes.categoryListView,
+                          arguments: CategoryListViewArguments(
+                              events: events,
+                              categoryName: categories[index]['title']!));
+                    },
+                    child: Animate(
+                      effects: [FadeEffect(duration: 800.ms)],
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.max,
+                          children: [
+                            Container(
+                              width: 110.w, // Adjust width as needed
+                              height: 110.w,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: _getBorderRadius(corner),
+                                image: DecorationImage(
+                                  image:
+                                      AssetImage(categories[index]['image']!),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: _getBorderRadius(corner),
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.transparent,
+                                      Colors.black.withOpacity(0.7),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Align(
+                              alignment: Alignment.bottomLeft,
+                              child: Padding(
+                                padding: const EdgeInsets.all(5.0),
+                                child: LimitedBox(
+                                  maxHeight: 35.h,
+                                  maxWidth: 100.w,
+                                  child: AutoSizeText(
+                                    maxLines: 2,
+                                    minFontSize: 14,
+                                    maxFontSize: 16,
+                                    categories[index]['title']!,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          Expanded(
+            child: customEventCardList(events: events),
+          ),
+        ],
+      ),
+    );
+  }
+
+  BorderRadius _getBorderRadius(String corner) {
+    const double radius = 20.0;
+    switch (corner) {
+      case 'topRight':
+        return const BorderRadius.only(
+          topLeft: Radius.circular(radius),
+          bottomLeft: Radius.circular(radius),
+          bottomRight: Radius.circular(radius),
+        );
+      case 'topLeft':
+        return const BorderRadius.only(
+          topRight: Radius.circular(radius),
+          bottomLeft: Radius.circular(radius),
+          bottomRight: Radius.circular(radius),
+        );
+      case 'bottomRight':
+        return const BorderRadius.only(
+          topLeft: Radius.circular(radius),
+          topRight: Radius.circular(radius),
+          bottomLeft: Radius.circular(radius),
+        );
+      case 'bottomLeft':
+        return const BorderRadius.only(
+          topLeft: Radius.circular(radius),
+          topRight: Radius.circular(radius),
+          bottomRight: Radius.circular(radius),
+        );
+      default:
+        return const BorderRadius.all(Radius.circular(radius));
+    }
+  }
+}
+=== lib/pages_view/create_event/create_event_view.dart ===
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:image_picker/image_picker.dart';
+import 'package:utb_events/utils/size_extensions.dart';
+
+import '../../constant/colors.dart';
+import '../../widgets/custom_app_bar.dart';
+import '../../utils/university_data.dart';
+
+class CreateEventView extends StatefulWidget {
+  const CreateEventView({super.key});
+
+  @override
+  State<CreateEventView> createState() => _CreateEventViewState();
+}
+
+class _CreateEventViewState extends State<CreateEventView> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _quillController = quill.QuillController.basic();
+  List<XFile>? _selectedImages;
+  List<EventSchedule> schedules = [EventSchedule()];
+  List<String> selectedUniversities = [];
+  bool isAllUniversities = false;
+  bool isAllMembers = false;
+  List<String> selectedMembers = [];
+  List<String> selectedOccupations = [];
+  bool isAllOccupationsSelected = false;
+  bool isAllUniversitiesSelected = false;
+  List<String> selectedUniversityNames = [];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const CustomAppBar(title: 'Create Event'),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildImagePicker(),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Event Title',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter an event title';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Event Description'),
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: quill.QuillEditor.basic(
+                      controller: _quillController,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Event Schedule'),
+                  const SizedBox(height: 8),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: schedules.length,
+                    itemBuilder: (context, index) {
+                      return Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          children: [
+                            TextField(
+                              readOnly: true,
+                              controller: TextEditingController(
+                                  text: schedules[index].date != null
+                                      ? "${schedules[index].date!.day.toString().padLeft(2, '0')}/${schedules[index].date!.month.toString().padLeft(2, '0')}/${schedules[index].date!.year}"
+                                      : 'Select Date'),
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                suffixIcon: Icon(Icons.calendar_today),
+                              ),
+                              onTap: () async {
+                                final date = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.now(),
+                                  firstDate: DateTime.now(),
+                                  lastDate: DateTime.now()
+                                      .add(const Duration(days: 365)),
+                                );
+                                if (date != null) {
+                                  setState(() {
+                                    schedules[index].date = date;
+                                  });
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildOccupationSelection(),
+              const SizedBox(height: 16),
+              _buildUniversitySelection(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImagePicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Event Images'),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: () async {
+            final ImagePicker picker = ImagePicker();
+            final List<XFile> images = await picker.pickMultiImage();
+            if (images.isNotEmpty) {
+              setState(() {
+                _selectedImages = images;
+              });
+            }
+          },
+          child: Container(
+            height: 200,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: _selectedImages?.isEmpty ?? true
+                ? const Center(child: Icon(Icons.add_photo_alternate, size: 50))
+                : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _selectedImages!.length,
+                    itemBuilder: (context, index) {
+                      return Image.file(
+                        File(_selectedImages![index].path),
+                        fit: BoxFit.cover,
+                      );
+                    },
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOccupationSelection() {
+    final List<String> occupations = [
+      'Student',
+      'Professor',
+      'Lecturer',
+      'Dean',
+      'Department Head',
+      'Administrator',
+      'Accountant',
+      'Advertiser',
+      'Marketing Staff',
+      'Alumni',
+      'Research Assistant',
+      'Teaching Assistant',
+      'Library Staff',
+      'IT Staff',
+      'All',
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Target Occupations'),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: occupations.map((occupation) {
+            final isSelected = occupation == 'All'
+                ? isAllOccupationsSelected
+                : selectedOccupations.contains(occupation);
+
+            return ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isSelected ? primaryColor : Colors.white,
+                foregroundColor: isSelected ? Colors.white : Colors.black,
+              ),
+              onPressed: () {
+                setState(() {
+                  if (occupation == 'All') {
+                    isAllOccupationsSelected = !isAllOccupationsSelected;
+                    selectedOccupations = isAllOccupationsSelected
+                        ? occupations.where((o) => o != 'All').toList()
+                        : [];
+                  } else {
+                    if (selectedOccupations.contains(occupation)) {
+                      selectedOccupations.remove(occupation);
+                      isAllOccupationsSelected = false;
+                    } else {
+                      selectedOccupations.add(occupation);
+                      if (selectedOccupations.length ==
+                          occupations.length - 1) {
+                        isAllOccupationsSelected = true;
+                      }
+                    }
+                  }
+                });
+              },
+              child: Text(occupation),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUniversitySelection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Target Universities'),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: ['All', ...bahrainUniversities.map((u) => u.shortName)]
+              .map((universityName) {
+            final isSelected = universityName == 'All'
+                ? isAllUniversitiesSelected
+                : selectedUniversityNames.contains(universityName);
+
+            return ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isSelected ? primaryColor : Colors.white,
+                foregroundColor: isSelected ? Colors.white : Colors.black,
+              ),
+              onPressed: () {
+                setState(() {
+                  if (universityName == 'All') {
+                    isAllUniversitiesSelected = !isAllUniversitiesSelected;
+                    selectedUniversityNames = isAllUniversitiesSelected
+                        ? bahrainUniversities.map((u) => u.shortName).toList()
+                        : [];
+                  } else {
+                    if (selectedUniversityNames.contains(universityName)) {
+                      selectedUniversityNames.remove(universityName);
+                      isAllUniversitiesSelected = false;
+                    } else {
+                      selectedUniversityNames.add(universityName);
+                      if (selectedUniversityNames.length ==
+                          bahrainUniversities.length) {
+                        isAllUniversitiesSelected = true;
+                      }
+                    }
+                  }
+                });
+              },
+              child: Text(universityName),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          height: 50.h,
+          child: ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(25),
+              ),
+            ),
+            child: const Text(
+              'Create Event',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: 90.h),
+      ],
+    );
+  }
+
+  // Add other widget methods...
+}
+
+class EventSchedule {
+  DateTime? date;
+  TimeOfDay? startTime;
+  TimeOfDay? endTime;
+}
+=== lib/pages_view/calendar/calendar_view.dart ===
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:table_calendar/table_calendar.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'dart:math';
+
+import '../../constant/routes.dart';
+import '../../widgets/custom_app_bar.dart';
+
+class CalendarView extends ConsumerStatefulWidget {
+  const CalendarView({super.key});
+
+  @override
+  ConsumerState<CalendarView> createState() => _CalendarViewState();
+}
+
+class _CalendarViewState extends ConsumerState<CalendarView>
+    with SingleTickerProviderStateMixin {
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
+  late AnimationController _animationController;
+  final List<EventButton> _eventButtons = [];
+  final List<Map<String, dynamic>> events = [
+    {
+      'title': 'Bahrain Universities Conference 2025',
+      'location': 'Sakheer (UOB)',
+      'tag': '@UOB',
+      'date': 'Jan 2025',
+      'image': 'assets/university.png',
+    },
+    {
+      'title': 'UTB Sports Day',
+      'location': 'UTB Sports Complex',
+      'tag': '@UTB',
+      'date': 'Mar 2025',
+      'image': 'assets/match.png',
+    },
+    {
+      'title': 'International Food Festival',
+      'location': 'UTB Campus',
+      'tag': '@UTB',
+      'date': 'Apr 2025',
+      'image': 'assets/food.png',
+    },
+    {
+      'title': 'Student Research Conference',
+      'location': 'UTB Auditorium',
+      'tag': '@UTB',
+      'date': 'May 2025',
+      'image': 'assets/university.png',
+    },
+    {
+      'title': 'Career Fair 2025',
+      'location': 'UTB Exhibition Hall',
+      'tag': '@UTB',
+      'date': 'Jun 2025',
+      'image': 'assets/event.png',
+    }
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    initializeDateFormatting();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..repeat();
+
+    // Create event buttons from events list
+    for (var i = 0; i < events.length; i++) {
+      _eventButtons.add(
+        EventButton(
+          offset: i * (1.0 / events.length),
+          eventData: events[i],
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const CustomAppBar(title: 'Calendar'),
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              TableCalendar(
+                firstDay: DateTime.now().subtract(const Duration(days: 365)),
+                lastDay: DateTime.now().add(const Duration(days: 365)),
+                focusedDay: _focusedDay,
+                selectedDayPredicate: (day) {
+                  return isSameDay(_selectedDay, day);
+                },
+                onDaySelected: (selectedDay, focusedDay) {
+                  setState(() {
+                    _selectedDay = selectedDay;
+                    _focusedDay = focusedDay;
+                  });
+                },
+                calendarStyle: CalendarStyle(
+                  weekendTextStyle: const TextStyle(color: Colors.red),
+                  selectedDecoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                headerStyle: const HeaderStyle(
+                  formatButtonVisible: false,
+                  titleCentered: true,
+                ),
+              ),
+            ],
+          ),
+          ...(_eventButtons.map((button) => AnimatedEventButton(
+                animation: _animationController,
+                offset: button.offset,
+                eventData: button.eventData,
+              ))),
+        ],
+      ),
+    );
+  }
+}
+
+class EventButton {
+  final double offset;
+  final Map<String, dynamic> eventData;
+
+  EventButton({
+    required this.offset,
+    required this.eventData,
+  });
+}
+
+class AnimatedEventButton extends StatelessWidget {
+  final AnimationController animation;
+  final double offset;
+  final Map<String, dynamic> eventData;
+
+  const AnimatedEventButton({
+    Key? key,
+    required this.animation,
+    required this.offset,
+    required this.eventData,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final screenHeight = MediaQuery.of(context).size.height;
+
+        final progress = (animation.value + offset) % 1.0;
+        final x = screenWidth - (progress * (screenWidth + 100));
+        final wave = sin(progress * 2 * pi) * 30;
+        final y = screenHeight * 0.6 + wave;
+
+        return Positioned(
+          left: x,
+          top: y,
+          child: GestureDetector(
+            onTap: () {
+              // Show event details in a dialog or navigate to event page
+              Navigator.pushNamed(
+                context,
+                AppRoutes.eventView,
+                arguments: eventData,
+              );
+            },
+            child: Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                image: DecorationImage(
+                  image: AssetImage(eventData['image']),
+                  fit: BoxFit.cover,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+=== lib/pages_view/login_register/login_register_view.dart ===
+import 'package:auto_size_text/auto_size_text.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:gap/gap.dart';
+import 'package:utb_events/utils/size_extensions.dart';
+
+import '../../constant/colors.dart';
+import '../../provider/main_provider.dart';
+import '../main_navigation.dart';
+import '../../utils/university_data.dart';
+
+const List<String> universityOccupations = [
+  'Student',
+  'Professor',
+  'Lecturer',
+  'Dean',
+  'Department Head',
+  'Administrator',
+  'Accountant',
+  'Advertiser',
+  'Marketing Staff',
+  'Alumni',
+  'Research Assistant',
+  'Teaching Assistant',
+  'Library Staff',
+  'IT Staff',
+  'Other',
+];
+
+class LoginRegisterView extends ConsumerStatefulWidget {
+  const LoginRegisterView({super.key});
+
+  @override
+  ConsumerState<LoginRegisterView> createState() => _LoginRegisterViewState();
+}
+
+class _LoginRegisterViewState extends ConsumerState<LoginRegisterView> {
+  bool isSignIn = true;
+
+  void onPressedSwitcher() {
+    setState(() {
+      isSignIn = !isSignIn;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final setLogIn = ref.read(navigationProvider);
+    return Scaffold(
+      body: Column(
+        mainAxisSize: MainAxisSize.max,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.only(
+              bottomLeft: Radius.circular(30),
+              bottomRight: Radius.circular(30),
+            ),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              height: isSignIn ? 250.h : 130.h,
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage('assets/university.png'),
+                  fit: BoxFit.cover,
+                ),
+              ),
+              child: Container(
+                height: 250.h,
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(30),
+                    bottomRight: Radius.circular(30),
+                  ),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.7),
+                    ],
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.max,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (isSignIn)
+                      SvgPicture.asset(
+                        'assets/calendar.svg',
+                        height: 60.h,
+                      ),
+                    const Gap(10),
+                    const Text(
+                      'Events Calendar',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          isSignIn
+              ? signInWidget(context, onPressedSwitcher, ref)
+              : Expanded(
+                  child: signUpWidget(context, onPressedSwitcher),
+                ),
+        ],
+      ),
+    );
+  }
+}
+
+Widget signInWidget(BuildContext context, void Function() onPressedSwitcher,
+        WidgetRef ref) =>
+    Padding(
+      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text("Don't have an account? "),
+              TextButton(
+                onPressed: onPressedSwitcher,
+                child: Text(
+                  'Sign up here',
+                  style: TextStyle(
+                    color: primaryColor,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Gap(24.h),
+          TextField(
+            decoration: InputDecoration(
+              labelText: 'User Name',
+              labelStyle: const TextStyle(color: Colors.grey),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+            ),
+          ),
+          Gap(24.h),
+          TextField(
+            obscureText: true,
+            decoration: InputDecoration(
+              labelText: 'Password',
+              labelStyle: const TextStyle(color: Colors.grey),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+            ),
+          ),
+          Gap(16.h),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Checkbox(
+                    value: false,
+                    onChanged: (value) {},
+                    activeColor: primaryColor,
+                  ),
+                  Text(
+                    'Remember me',
+                    style: TextStyle(color: primaryColor),
+                  ),
+                ],
+              ),
+              TextButton(
+                onPressed: () {},
+                child: const Text(
+                  'Forget Password?',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            ],
+          ),
+          Gap(24.h),
+          SizedBox(
+            width: double.infinity,
+            height: 50.h,
+            child: ElevatedButton(
+              onPressed: () {
+                print('Login button pressed');
+                ref.read(navigationProvider.notifier).setIndex(0);
+                ref.read(navigationProvider.notifier).setLoginStatus(true);
+                Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const MainNavigationView()),
+                    (route) => false);
+                print('Login status updated');
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25),
+                ),
+              ),
+              child: const Text(
+                'Sign In',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
+          Gap(16.h),
+        ],
+      ),
+    );
+
+Widget signUpWidget(BuildContext context, void Function() onPressedSwitcher) =>
+    Padding(
+      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
+      child: ListView(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text("Already have an account? "),
+              TextButton(
+                onPressed: onPressedSwitcher,
+                child: const Text(
+                  'Sign in here',
+                  style: TextStyle(
+                    color: primaryColor,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Gap(24.h),
+          TextField(
+            decoration: InputDecoration(
+              labelText: 'User Name',
+              labelStyle: const TextStyle(color: Colors.grey),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+            ),
+          ),
+          Gap(24.h),
+          TextField(
+            obscureText: true,
+            decoration: InputDecoration(
+              labelText: 'Password',
+              labelStyle: const TextStyle(color: Colors.grey),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+            ),
+          ),
+          Gap(24.h),
+          TextField(
+            decoration: InputDecoration(
+              labelText: 'Full Name',
+              labelStyle: const TextStyle(color: Colors.grey),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+            ),
+          ),
+          Gap(24.h),
+          TextField(
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: 'Personal ID',
+              labelStyle: const TextStyle(color: Colors.grey),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+            ),
+          ),
+          Gap(24.h),
+          TextField(
+            decoration: InputDecoration(
+              labelText: 'Phone Number',
+              labelStyle: const TextStyle(color: Colors.grey),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+            ),
+          ),
+          Gap(24.h),
+          DropdownButtonFormField<String>(
+            hint: const Text('Select Occupation'),
+            items: universityOccupations.map((occupation) {
+              return DropdownMenuItem(
+                value: occupation,
+                child: Text(occupation),
+              );
+            }).toList(),
+            onChanged: (value) {},
+            decoration: InputDecoration(
+              labelStyle: const TextStyle(color: Colors.grey),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+            ),
+          ),
+          Gap(24.h),
+          DropdownButtonFormField<String>(
+            hint: const Text('Select University'),
+            items: bahrainUniversities.map((university) {
+              return DropdownMenuItem(
+                value: university.shortName,
+                child: LimitedBox(
+                  maxWidth: 200.w,
+                  child: AutoSizeText(
+                    maxLines: 1,
+                    minFontSize: 10,
+                    maxFontSize: 16,
+                    '${university.name} (${university.shortName})',
+                  ),
+                ),
+              );
+            }).toList(),
+            onChanged: (value) {},
+            decoration: InputDecoration(
+              labelStyle: const TextStyle(color: Colors.grey),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+            ),
+          ),
+          Gap(24.h),
+          TextField(
+            decoration: InputDecoration(
+              labelText: 'Academic ID',
+            ),
+          ),
+          Gap(24.h),
+          TextField(
+            decoration: InputDecoration(
+              labelText: 'Date of Birth',
+              labelStyle: const TextStyle(color: Colors.grey),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: primaryColor),
+              ),
+            ),
+            readOnly: true,
+            onTap: () async {
+              final date = await showDatePicker(
+                context: context,
+                initialDate: DateTime.now(),
+                firstDate: DateTime(1900),
+                lastDate: DateTime.now(),
+              );
+              // Handle the selected date
+            },
+          ),
+          Gap(24.h),
+          DropdownButtonFormField(
+            hint: const Text('Select Gender'),
+            items: const [
+              DropdownMenuItem(value: "Male", child: Text("Male")),
+              DropdownMenuItem(value: "Female", child: Text("Female")),
+            ],
+            onChanged: (value) {},
+          ),
+          Gap(24.h),
+          SizedBox(
+            width: double.infinity,
+            height: 50.h,
+            child: ElevatedButton(
+              onPressed: () {},
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25),
+                ),
+              ),
+              child: const Text(
+                'Sign Up',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+=== lib/pages_view/main_navigation.dart ===
+import 'dart:developer';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../provider/main_provider.dart';
+import '../widgets/navigation_bar.dart';
+import 'calendar/calendar_view.dart';
+import 'categories/categories_view.dart';
+import 'create_event/create_event_view.dart';
+import 'home/home_view.dart';
+import 'login_register/login_register_view.dart';
+import 'profile/profile_view.dart';
+
+class MainNavigationView extends ConsumerStatefulWidget {
+  const MainNavigationView({super.key});
+
+  @override
+  ConsumerState<MainNavigationView> createState() => _MainNavigationViewState();
+}
+
+class _MainNavigationViewState extends ConsumerState<MainNavigationView> {
+  @override
+  Widget build(BuildContext context) {
+    final status = ref.read(navigationProvider.notifier).isLoggedIn;
+    log(status.toString());
+    return Scaffold(
+      body: status == 0
+          ? const LoginRegisterView()
+          : Stack(
+              children: [
+                IndexedStack(
+                  index: ref.watch(navigationProvider),
+                  children: const [
+                    HomeView(),
+                    CategoriesView(),
+                    CalendarView(),
+                    ProfileView(),
+                    CreateEventView(),
+                  ],
+                ),
+                const Align(
+                  alignment: Alignment.bottomCenter,
+                  child: CustomNavigationBar(),
+                ),
+              ],
+            ),
+    );
+  }
+}
+=== lib/pages_view/profile/profile_view.dart ===
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:utb_events/utils/size_extensions.dart';
+
+import '../../constant/colors.dart';
+import '../../provider/main_provider.dart';
+import '../../widgets/custom_app_bar.dart';
+import '../main_navigation.dart';
+
+class ProfileView extends ConsumerStatefulWidget {
+  const ProfileView({super.key});
+
+  @override
+  ConsumerState<ProfileView> createState() => _ProfileViewState();
+}
+
+class _ProfileViewState extends ConsumerState<ProfileView> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const CustomAppBar(title: 'Profile'),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            // Profile Card
+            Card(
+              color: Colors.pink[50],
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    const CircleAvatar(
+                      radius: 30,
+                      child: Icon(Icons.person, size: 35),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'NASSER HUSSAIN',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'nasser@utb.events.app',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () {},
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Menu Items
+            ListTile(
+              leading: const Icon(Icons.notifications, color: Colors.red),
+              title: const Text('Notification'),
+              trailing: Switch(
+                value: true,
+                onChanged: (value) {},
+                activeColor: Colors.red,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.headset_mic, color: Colors.red),
+              title: const Text('Help and support'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {},
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Logout'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                ref.read(navigationProvider.notifier).setLoginStatus(false);
+                Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const MainNavigationView()),
+                    (route) => false);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+=== lib/pages_view/categories/category_list_view.dart ===
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../widgets/custom_app_bar.dart';
+import '../../widgets/custom_event_list.dart';
+
+class CategoryListView extends ConsumerStatefulWidget {
+  const CategoryListView({super.key});
+
+  @override
+  ConsumerState<CategoryListView> createState() => _CategoryListViewState();
+}
+
+class _CategoryListViewState extends ConsumerState<CategoryListView> {
+  CategoryListViewArguments? arguments;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    arguments =
+        ModalRoute.of(context)!.settings.arguments as CategoryListViewArguments;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: CustomAppBar(title: arguments!.categoryName),
+      body: customEventCardList(events: arguments!.events),
+    );
+  }
+}
+
+class CategoryListViewArguments {
+  final List<Map<String, dynamic>> events;
+  final String categoryName;
+
+  CategoryListViewArguments({required this.events, required this.categoryName});
+}
+=== lib/pages_view/categories/categories_view.dart ===
+import 'package:auto_size_text/auto_size_text.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:utb_events/utils/size_extensions.dart';
+
+import '../../constant/routes.dart';
+import '../../widgets/custom_app_bar.dart';
+import 'category_list_view.dart';
+
+class CategoriesView extends ConsumerStatefulWidget {
+  const CategoriesView({super.key});
+
+  @override
+  ConsumerState<CategoriesView> createState() => _CategoriesViewState();
+}
+
+class _CategoriesViewState extends ConsumerState<CategoriesView> {
+  final List<Map<String, String>> categories = [
+    {
+      'title': 'Education events',
+      'image': 'assets/education.png',
+      'corner': 'topRight'
+    },
+    {
+      'title': 'General events',
+      'image': 'assets/general.png',
+      'corner': 'topLeft'
+    },
+    {
+      'title': 'Sports events',
+      'image': 'assets/sport.png',
+      'corner': 'bottomRight'
+    },
+    {
+      'title': 'Food events',
+      'image': 'assets/food.png',
+      'corner': 'bottomLeft'
+    },
+    {
+      'title': 'Education events',
+      'image': 'assets/education.png',
+      'corner': 'topRight'
+    },
+    {
+      'title': 'General events',
+      'image': 'assets/general.png',
+      'corner': 'topLeft'
+    },
+    {
+      'title': 'Sports events',
+      'image': 'assets/sport.png',
+      'corner': 'bottomRight'
+    },
+    {
+      'title': 'Food events',
+      'image': 'assets/food.png',
+      'corner': 'bottomLeft'
+    },
+  ];
+
+  final List<Map<String, dynamic>> events = [
+    {
+      'title': 'Bahrain Universities Conference 2025',
+      'location': 'Sakheer (UOB)',
+      'tag': '@UOB',
+      'date': 'Jan 2025',
+      'image': 'assets/university.png', // Add your image asset
+    },
+    {
+      'title': 'UTB Sports Day',
+      'location': 'UTB Sports Complex',
+      'tag': '@UTB',
+      'date': 'Mar 2025',
+      'image': 'assets/match.png',
+    },
+    {
+      'title': 'International Food Festival',
+      'location': 'UTB Campus',
+      'tag': '@UTB',
+      'date': 'Apr 2025',
+      'image': 'assets/food.png',
+    },
+    {
+      'title': 'Student Research Conference',
+      'location': 'UTB Auditorium',
+      'tag': '@UTB',
+      'date': 'May 2025',
+      'image': 'assets/university.png',
+    },
+    {
+      'title': 'Career Fair 2025',
+      'location': 'UTB Exhibition Hall',
+      'tag': '@UTB',
+      'date': 'Jun 2025',
+      'image': 'assets/event.png',
+    }
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const CustomAppBar(title: 'Categories'),
+      body: Column(
+        children: [
+          Expanded(
+            child: GridView.builder(
+              itemCount: categories.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                childAspectRatio: 0.87,
+              ),
+              itemBuilder: (context, index) {
+                String corner = categories[index % 4]['corner']!;
+                return Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.categoryListView,
+                        arguments: CategoryListViewArguments(
+                          events: events,
+                          categoryName: categories[index]['title']!,
+                        ),
+                      );
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.max,
+                      children: [
+                        Container(
+                          width: 90.w, // Adjust width as needed
+                          height: 90.w,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: _getBorderRadius(corner),
+                            image: DecorationImage(
+                              image: AssetImage(categories[index]['image']!),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: _getBorderRadius(corner),
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withOpacity(0.7),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Padding(
+                            padding: const EdgeInsets.all(5.0),
+                            child: LimitedBox(
+                              maxHeight: 25.h,
+                              maxWidth: 100.w,
+                              child: AutoSizeText(
+                                maxLines: 2,
+                                minFontSize: 14,
+                                maxFontSize: 16,
+                                categories[index]['title']!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  BorderRadius _getBorderRadius(String corner) {
+    const double radius = 20.0;
+    switch (corner) {
+      case 'topRight':
+        return const BorderRadius.only(
+          topLeft: Radius.circular(radius),
+          bottomLeft: Radius.circular(radius),
+          bottomRight: Radius.circular(radius),
+        );
+      case 'topLeft':
+        return const BorderRadius.only(
+          topRight: Radius.circular(radius),
+          bottomLeft: Radius.circular(radius),
+          bottomRight: Radius.circular(radius),
+        );
+      case 'bottomRight':
+        return const BorderRadius.only(
+          topLeft: Radius.circular(radius),
+          topRight: Radius.circular(radius),
+          bottomLeft: Radius.circular(radius),
+        );
+      case 'bottomLeft':
+        return const BorderRadius.only(
+          topLeft: Radius.circular(radius),
+          topRight: Radius.circular(radius),
+          bottomRight: Radius.circular(radius),
+        );
+      default:
+        return const BorderRadius.all(Radius.circular(radius));
+    }
+  }
+}
+=== lib/pages_view/event/event_view.dart ===
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:utb_events/utils/size_extensions.dart';
+
+import '../../widgets/custom_event_list.dart';
+
+class EventView extends ConsumerStatefulWidget {
+  const EventView({super.key});
+
+  @override
+  ConsumerState<EventView> createState() => _EventViewState();
+}
+
+class _EventViewState extends ConsumerState<EventView> {
+  EventViewArguments? arguments;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final routeArgs =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    arguments = EventViewArguments(event: routeArgs);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(200.h),
+        child: Container(
+          height: 200.h,
+          decoration: BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage(arguments!.event['image']),
+              fit: BoxFit.cover,
+            ),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.7),
+                ],
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, top: 60),
+                  child: Row(
+                    children: [
+                          IconButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        arguments!.event['title'],
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on,
+                              color: Colors.red, size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                            arguments!.event['location'],
+                            style: const TextStyle(color: Colors.black),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            arguments!.event['tag'],
+                            style: const TextStyle(color: Colors.blue),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    Container(
+                      height: 50.h,
+                      width: 80.w,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade400,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(50),
+                          bottomLeft: Radius.circular(50),
+                        ),
+                      ),
+                      child: const Row(
+                        children: [
+                          Text(
+                            '1', // You can split the date string to get this
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(width: 10),
+                          Text(
+                            'Jan\n2025', // You can split the date string to get this
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Event Details:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'We are pleased to invite you to the ${arguments!.event['title']}, '
+                    'an esteemed gathering of academic leaders, researchers, and students from '
+                    'universities across the nation. This year\'s conference aims to foster collaboration, '
+                    'share insights, and explore advancements in education and research.',
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Highlights:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('• Keynote speakers from leading academic institutions'),
+                      Text('• Panel discussions with industry experts'),
+                      Text('• Workshops and networking sessions'),
+                      Text('• Research paper presentations'),
+                      Text('• Student poster exhibitions'),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Registration:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'To confirm your attendance, please register by February 1, 2025, at our conference website '
+                    'or contact us at conference@bahrainedu2025.com for further information.',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class EventViewArguments {
+  final Map<String, dynamic> event;
+  EventViewArguments({required this.event});
+}
+=== lib/widgets/custom_app_bar.dart ===
+import 'package:flutter/material.dart';
+import 'package:utb_events/utils/size_extensions.dart';
+
+class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final String title;
+  final Color backgroundColor;
+
+  const CustomAppBar({
+    super.key,
+    required this.title,
+    this.backgroundColor =
+        const Color(0xFFBE3144), // The red color from your image
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      elevation: 0,
+      flexibleSpace: ClipPath(
+        clipper: CustomShapeClipper(),
+        child: Container(
+          color: backgroundColor,
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.only(top: 40.h),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Size get preferredSize => Size.fromHeight(90.h);
+}
+
+class CustomShapeClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    Path path = Path();
+
+    // Start from top-left
+    path.lineTo(0, size.height - 40);
+
+    // Create the curved bottom
+    path.quadraticBezierTo(
+        size.width / 2, size.height, size.width, size.height - 40);
+
+    // Complete the shape
+    path.lineTo(size.width, 0);
+    path.close();
+
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+=== lib/widgets/navigation_bar.dart ===
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:utb_events/utils/size_extensions.dart';
+
+import '../provider/main_provider.dart';
+
+class CustomNavigationBar extends ConsumerWidget {
+  const CustomNavigationBar({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedIndex = ref.watch(navigationProvider);
+
+    return Container(
+      height: 90.h,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildNavItem(context, 0, Icons.home, selectedIndex, ref),
+          _buildNavItem(context, 1, Icons.list, selectedIndex, ref),
+          _buildNavItem(context, 2, Icons.calendar_today, selectedIndex, ref),
+          _buildNavItem(context, 3, Icons.person, selectedIndex, ref),
+          _buildNavItem(context, 4, Icons.add, selectedIndex, ref),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavItem(BuildContext context, int index, IconData icon,
+      int selectedIndex, WidgetRef ref) {
+    final isSelected = selectedIndex == index;
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        InkWell(
+          onTap: () {
+            ref.read(navigationProvider.notifier).setIndex(index);
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 50),
+            padding: EdgeInsets.all(isSelected ? 14.h : 10.h),
+            decoration: BoxDecoration(
+              color: isSelected ? Colors.white : Colors.grey[200],
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(
+              icon,
+              color: isSelected ? Colors.red : Colors.red.withOpacity(0.5),
+              size: 24,
+            ),
+          ),
+        ),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.only(top: 4),
+          width: isSelected ? 40.w : 0,
+          height: 4.h,
+          decoration: BoxDecoration(
+            color: Colors.red,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ],
+    );
+  }
+}
+=== lib/widgets/custom_event_list.dart ===
+import 'package:flutter/material.dart';
+import 'package:utb_events/utils/size_extensions.dart';
+
+import '../constant/routes.dart';
+
+ListView customEventCardList({required List<Map<String, dynamic>> events}) {
+  return ListView.builder(
+    itemCount: events.length,
+    itemBuilder: (context, index) {
+      return eventCard(context: context, event: events[index]);
+    },
+  );
+}
+
+Container eventCard({
+  required BuildContext context,
+  required Map<String, dynamic> event,
+}) {
+  return Container(
+    height: 200.h,
+    decoration: BoxDecoration(
+      image: DecorationImage(
+        image: AssetImage(event['image']),
+        fit: BoxFit.cover,
+      ),
+    ),
+    child: InkWell(
+      onTap: () {
+        Navigator.pushNamed(context, AppRoutes.eventView, arguments: event);
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.transparent,
+              Colors.black.withOpacity(0.7),
+            ],
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.max,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  Container(
+                    height: 50.h,
+                    width: 80.w,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade400,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(50),
+                        bottomLeft: Radius.circular(50),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          event['date'].toString().split(' ')[
+                              0], // You can split the date string to get this
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          event['date']
+                              .toString()
+                              .split(' ')[1]
+                              .split('-')
+                              .first, // You can split the date string to get this
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event['title'],
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on,
+                          color: Colors.white, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        event['location'],
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        event['tag'],
+                        style: const TextStyle(color: Colors.blue),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}

@@ -18,7 +18,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(title: 'UTB Events'),
+      appBar: const CustomAppBar(title: 'Profile'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

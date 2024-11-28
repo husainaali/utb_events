@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:utb_events/utils/size_extensions.dart';
 
-import '../constant/routes.dart';
 import '../provider/main_provider.dart';
 
 class CustomNavigationBar extends ConsumerWidget {

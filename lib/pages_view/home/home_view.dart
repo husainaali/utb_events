@@ -45,35 +45,35 @@ class _HomeViewState extends ConsumerState<HomeView> {
       'title': 'Bahrain Universities Conference 2025',
       'location': 'Sakheer (UOB)',
       'tag': '@UOB',
-      'date': 'Jan 2025',
+      'date': '10 Jan 2025',
       'image': 'assets/university.png', // Add your image asset
     },
     {
       'title': 'UTB Sports Day',
       'location': 'UTB Sports Complex',
       'tag': '@UTB',
-      'date': 'Mar 2025',
+      'date': '15 Mar 2025',
       'image': 'assets/match.png',
     },
     {
       'title': 'International Food Festival',
       'location': 'UTB Campus',
       'tag': '@UTB',
-      'date': 'Apr 2025',
+      'date': '26 Apr 2025',
       'image': 'assets/food.png',
     },
     {
       'title': 'Student Research Conference',
       'location': 'UTB Auditorium',
       'tag': '@UTB',
-      'date': 'May 2025',
+      'date': '2 May 2025',
       'image': 'assets/university.png',
     },
     {
       'title': 'Career Fair 2025',
       'location': 'UTB Exhibition Hall',
       'tag': '@UTB',
-      'date': 'Jun 2025',
+      'date': '1 Jun 2025',
       'image': 'assets/event.png',
     }
   ];
@@ -81,7 +81,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(title: 'UTB Events'),
+      appBar: const CustomAppBar(title: 'Events Calendar'),
       body: Column(
         mainAxisSize: MainAxisSize.max,
         children: [

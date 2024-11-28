@@ -94,7 +94,7 @@ class _LoginRegisterViewState extends ConsumerState<LoginRegisterView> {
                       ),
                     const Gap(10),
                     const Text(
-                      'UTB Events',
+                      'Events Calendar',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 32,
@@ -200,6 +200,7 @@ Widget signInWidget(BuildContext context, void Function() onPressedSwitcher,
             child: ElevatedButton(
               onPressed: () {
                 print('Login button pressed');
+                ref.read(navigationProvider.notifier).setIndex(0);
                 ref.read(navigationProvider.notifier).setLoginStatus(true);
                 Navigator.pushAndRemoveUntil(
                     context,

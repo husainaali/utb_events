@@ -3,8 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:image_picker/image_picker.dart';
+import 'package:utb_events/utils/size_extensions.dart';
 
+import '../../constant/colors.dart';
 import '../../widgets/custom_app_bar.dart';
+import '../../utils/university_data.dart';
 
 class CreateEventView extends StatefulWidget {
   const CreateEventView({super.key});
@@ -23,11 +26,15 @@ class _CreateEventViewState extends State<CreateEventView> {
   bool isAllUniversities = false;
   bool isAllMembers = false;
   List<String> selectedMembers = [];
+  List<String> selectedOccupations = [];
+  bool isAllOccupationsSelected = false;
+  bool isAllUniversitiesSelected = false;
+  List<String> selectedUniversityNames = [];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(title: 'UTB Events'),
+      appBar: const CustomAppBar(title: 'Create Event'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -79,33 +86,36 @@ class _CreateEventViewState extends State<CreateEventView> {
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: schedules.length,
                     itemBuilder: (context, index) {
-                      return Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Column(
-                            children: [
-                              TextButton(
-                                onPressed: () async {
-                                  final date = await showDatePicker(
-                                    context: context,
-                                    initialDate: DateTime.now(),
-                                    firstDate: DateTime.now(),
-                                    lastDate: DateTime.now()
-                                        .add(const Duration(days: 365)),
-                                  );
-                                  if (date != null) {
-                                    setState(() {
-                                      schedules[index].date = date;
-                                    });
-                                  }
-                                },
-                                child: Text(
-                                  schedules[index].date?.toString() ??
-                                      'Select Date',
-                                ),
+                      return Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          children: [
+                            TextField(
+                              readOnly: true,
+                              controller: TextEditingController(
+                                  text: schedules[index].date != null
+                                      ? "${schedules[index].date!.day.toString().padLeft(2, '0')}/${schedules[index].date!.month.toString().padLeft(2, '0')}/${schedules[index].date!.year}"
+                                      : 'Select Date'),
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                suffixIcon: Icon(Icons.calendar_today),
                               ),
-                            ],
-                          ),
+                              onTap: () async {
+                                final date = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.now(),
+                                  firstDate: DateTime.now(),
+                                  lastDate: DateTime.now()
+                                      .add(const Duration(days: 365)),
+                                );
+                                if (date != null) {
+                                  setState(() {
+                                    schedules[index].date = date;
+                                  });
+                                }
+                              },
+                            ),
+                          ],
                         ),
                       );
                     },
@@ -113,9 +123,9 @@ class _CreateEventViewState extends State<CreateEventView> {
                 ],
               ),
               const SizedBox(height: 16),
-              // _buildUniversitySelection(),
+              _buildOccupationSelection(),
               const SizedBox(height: 16),
-              // _buildMemberSelection(),
+              _buildUniversitySelection(),
             ],
           ),
         ),
@@ -159,6 +169,143 @@ class _CreateEventViewState extends State<CreateEventView> {
                   ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildOccupationSelection() {
+    final List<String> occupations = [
+      'Student',
+      'Professor',
+      'Lecturer',
+      'Dean',
+      'Department Head',
+      'Administrator',
+      'Accountant',
+      'Advertiser',
+      'Marketing Staff',
+      'Alumni',
+      'Research Assistant',
+      'Teaching Assistant',
+      'Library Staff',
+      'IT Staff',
+      'All',
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Target Occupations'),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: occupations.map((occupation) {
+            final isSelected = occupation == 'All'
+                ? isAllOccupationsSelected
+                : selectedOccupations.contains(occupation);
+
+            return ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isSelected ? primaryColor : Colors.white,
+                foregroundColor: isSelected ? Colors.white : Colors.black,
+              ),
+              onPressed: () {
+                setState(() {
+                  if (occupation == 'All') {
+                    isAllOccupationsSelected = !isAllOccupationsSelected;
+                    selectedOccupations = isAllOccupationsSelected
+                        ? occupations.where((o) => o != 'All').toList()
+                        : [];
+                  } else {
+                    if (selectedOccupations.contains(occupation)) {
+                      selectedOccupations.remove(occupation);
+                      isAllOccupationsSelected = false;
+                    } else {
+                      selectedOccupations.add(occupation);
+                      if (selectedOccupations.length ==
+                          occupations.length - 1) {
+                        isAllOccupationsSelected = true;
+                      }
+                    }
+                  }
+                });
+              },
+              child: Text(occupation),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUniversitySelection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Target Universities'),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: ['All', ...bahrainUniversities.map((u) => u.shortName)]
+              .map((universityName) {
+            final isSelected = universityName == 'All'
+                ? isAllUniversitiesSelected
+                : selectedUniversityNames.contains(universityName);
+
+            return ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isSelected ? primaryColor : Colors.white,
+                foregroundColor: isSelected ? Colors.white : Colors.black,
+              ),
+              onPressed: () {
+                setState(() {
+                  if (universityName == 'All') {
+                    isAllUniversitiesSelected = !isAllUniversitiesSelected;
+                    selectedUniversityNames = isAllUniversitiesSelected
+                        ? bahrainUniversities.map((u) => u.shortName).toList()
+                        : [];
+                  } else {
+                    if (selectedUniversityNames.contains(universityName)) {
+                      selectedUniversityNames.remove(universityName);
+                      isAllUniversitiesSelected = false;
+                    } else {
+                      selectedUniversityNames.add(universityName);
+                      if (selectedUniversityNames.length ==
+                          bahrainUniversities.length) {
+                        isAllUniversitiesSelected = true;
+                      }
+                    }
+                  }
+                });
+              },
+              child: Text(universityName),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          height: 50.h,
+          child: ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(25),
+              ),
+            ),
+            child: const Text(
+              'Create Event',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: 90.h),
       ],
     );
   }

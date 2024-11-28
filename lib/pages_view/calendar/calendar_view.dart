@@ -4,6 +4,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'dart:math';
 
+import '../../constant/routes.dart';
 import '../../widgets/custom_app_bar.dart';
 
 class CalendarView extends ConsumerStatefulWidget {
@@ -13,7 +14,8 @@ class CalendarView extends ConsumerStatefulWidget {
   ConsumerState<CalendarView> createState() => _CalendarViewState();
 }
 
-class _CalendarViewState extends ConsumerState<CalendarView> with SingleTickerProviderStateMixin {
+class _CalendarViewState extends ConsumerState<CalendarView>
+    with SingleTickerProviderStateMixin {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   late AnimationController _animationController;
@@ -60,7 +62,7 @@ class _CalendarViewState extends ConsumerState<CalendarView> with SingleTickerPr
   void initState() {
     super.initState();
     initializeDateFormatting();
-    
+
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 10),
@@ -86,7 +88,7 @@ class _CalendarViewState extends ConsumerState<CalendarView> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(title: 'UTB Events'),
+      appBar: const CustomAppBar(title: 'Calendar'),
       body: Stack(
         children: [
           Column(
@@ -132,7 +134,7 @@ class _CalendarViewState extends ConsumerState<CalendarView> with SingleTickerPr
 class EventButton {
   final double offset;
   final Map<String, dynamic> eventData;
-  
+
   EventButton({
     required this.offset,
     required this.eventData,
@@ -158,7 +160,7 @@ class AnimatedEventButton extends StatelessWidget {
       builder: (context, child) {
         final screenWidth = MediaQuery.of(context).size.width;
         final screenHeight = MediaQuery.of(context).size.height;
-        
+
         final progress = (animation.value + offset) % 1.0;
         final x = screenWidth - (progress * (screenWidth + 100));
         final wave = sin(progress * 2 * pi) * 30;
@@ -170,26 +172,10 @@ class AnimatedEventButton extends StatelessWidget {
           child: GestureDetector(
             onTap: () {
               // Show event details in a dialog or navigate to event page
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: Text(eventData['title']),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Location: ${eventData['location']}'),
-                      Text('Date: ${eventData['date']}'),
-                      Text('Tag: ${eventData['tag']}'),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Close'),
-                    ),
-                  ],
-                ),
+              Navigator.pushNamed(
+                context,
+                AppRoutes.eventView,
+                arguments: eventData,
               );
             },
             child: Container(

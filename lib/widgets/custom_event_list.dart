@@ -60,20 +60,25 @@ Container eventCard({
                         bottomLeft: Radius.circular(50),
                       ),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
                         Text(
-                          '1', // You can split the date string to get this
-                          style: TextStyle(
+                          event['date'].toString().split(' ')[
+                              0], // You can split the date string to get this
+                          style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 24,
+                            fontSize: 22,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        SizedBox(width: 10),
+                        const SizedBox(width: 10),
                         Text(
-                          'Jan\n2025', // You can split the date string to get this
-                          style: TextStyle(
+                          event['date']
+                              .toString()
+                              .split(' ')[1]
+                              .split('-')
+                              .first, // You can split the date string to get this
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
                           ),
